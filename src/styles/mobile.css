@@ -1,0 +1,46 @@
+/* Mobile-first responsive design */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
+    margin-left: 0 !important;
+  }
+
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .btn {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+@media (min-width: 769px) {
+  .main-content {
+    margin-left: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .card-header h2 {
+    font-size: 20px;
+  }
+}
