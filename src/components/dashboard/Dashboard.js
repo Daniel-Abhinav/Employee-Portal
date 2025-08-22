@@ -1,20 +1,43 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabaseClient'
 
-const Dashboard = ({ employee }) => {
+const Dashboard = ({ employee, onEmployeeUpdate }) => {
   const [stats, setStats] = useState({
     totalLeaves: 0,
     pendingLeaves: 0,
     attendanceToday: null,
     thisMonthAttendance: 0,
-    leaveBalance: 15 // You can fetch this from a leaves_balance table
+    leaveBalance: 15
   })
   const [recentActivities, setRecentActivities] = useState([])
+  const [employeeData, setEmployeeData] = useState(employee)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Fetch fresh employee data including profile photo
+    fetchEmployeeData()
     fetchDashboardData()
   }, [employee.id])
+
+  const fetchEmployeeData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('id', employee.id)
+        .single()
+
+      if (error) throw error
+      setEmployeeData(data)
+      
+      // Notify parent component if needed
+      if (onEmployeeUpdate) {
+        onEmployeeUpdate(data)
+      }
+    } catch (error) {
+      console.error('Error fetching employee data:', error)
+    }
+  }
 
   const fetchDashboardData = async () => {
     try {
@@ -99,21 +122,29 @@ const Dashboard = ({ employee }) => {
 
   return (
     <div className="modern-dashboard">
-      {/* Welcome Header */}
+      {/* Welcome Header with Profile Photo */}
       <div className="dashboard-welcome">
         <div className="welcome-content">
-          <h1>Welcome back, {employee.name}!</h1>
+          <h1>Welcome back, {employeeData.name}!</h1>
           <p className="welcome-subtitle">Here's your workspace overview for today</p>
           <div className="current-time">{getCurrentTime()}</div>
         </div>
         <div className="welcome-avatar">
-          <div className="avatar-circle">
-            {employee.name?.charAt(0)?.toUpperCase()}
-          </div>
+          {employeeData.profile_photo_url ? (
+            <img 
+              src={employeeData.profile_photo_url} 
+              alt="Profile" 
+              className="avatar-photo"
+            />
+          ) : (
+            <div className="avatar-circle">
+              {employeeData.name?.charAt(0)?.toUpperCase()}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Stats Grid - Removed Total Leave Requests */}
+      {/* Stats Grid */}
       <div className="stats-modern-grid">
         <div className="stat-modern-card primary">
           <div className="stat-icon">📅</div>
@@ -223,27 +254,27 @@ const Dashboard = ({ employee }) => {
         <div className="employee-info-grid">
           <div className="info-modern-item">
             <div className="info-label">Employee ID</div>
-            <div className="info-value">{employee.employee_id || 'N/A'}</div>
+            <div className="info-value">{employeeData.employee_id || 'N/A'}</div>
           </div>
           <div className="info-modern-item">
             <div className="info-label">Department</div>
-            <div className="info-value">{employee.department || 'N/A'}</div>
+            <div className="info-value">{employeeData.department || 'N/A'}</div>
           </div>
           <div className="info-modern-item">
             <div className="info-label">Role</div>
-            <div className="info-value">{employee.role || 'N/A'}</div>
+            <div className="info-value">{employeeData.role || 'N/A'}</div>
           </div>
           <div className="info-modern-item">
             <div className="info-label">Joining Date</div>
-            <div className="info-value">{employee.joining_date ? formatDate(employee.joining_date) : 'N/A'}</div>
+            <div className="info-value">{employeeData.joining_date ? formatDate(employeeData.joining_date) : 'N/A'}</div>
           </div>
           <div className="info-modern-item">
             <div className="info-label">Email</div>
-            <div className="info-value">{employee.email}</div>
+            <div className="info-value">{employeeData.email}</div>
           </div>
           <div className="info-modern-item">
             <div className="info-label">Phone</div>
-            <div className="info-value">{employee.phone || 'N/A'}</div>
+            <div className="info-value">{employeeData.phone || 'N/A'}</div>
           </div>
         </div>
       </div>

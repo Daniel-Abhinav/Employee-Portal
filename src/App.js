@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { supabase } from './services/supabaseClient'
+import './styles/global.css'
+
+// Import components
 import Login from './components/auth/Login'
 import Dashboard from './components/dashboard/Dashboard'
 import ProfileManagement from './components/profile/ProfileManagement'
@@ -7,115 +11,167 @@ import AttendanceTracker from './components/attendance/AttendanceTracker'
 import LeaveRequest from './components/leave/LeaveRequest'
 import ExpenseRequest from './components/expense/ExpenseRequest'
 import Header from './components/common/Header'
+import GoalTrackingKPI from './components/goals/GoalTrackingKPI'
+import PerformanceDashboard from './components/performance/PerformanceDashboard'
 import Sidebar from './components/common/Sidebar'
-import { authService } from './services/authService'
-import './styles/global.css'
 
 function App() {
-  const [user, setUser] = useState(null)
-  const [profile, setProfile] = useState(null)
+  const [session, setSession] = useState(null)
+  const [employee, setEmployee] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [error, setError] = useState(null)
 
   useEffect(() => {
-    checkUserSession()
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session) {
+        fetchEmployeeData(session.user.id)
+      } else {
+        setLoading(false)
+      }
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      if (session) {
+        fetchEmployeeData(session.user.id)
+      } else {
+        setEmployee(null)
+        setLoading(false)
+      }
+    })
+
+    return () => subscription?.unsubscribe()
   }, [])
 
-  const checkUserSession = async () => {
+  const fetchEmployeeData = async (userId) => {
     try {
-      const session = await authService.getCurrentSession()
-      if (session) {
-        const profileData = await authService.getEmployeeProfile(session.user.id)
-        if (profileData && profileData.employees) {
-          setUser(session.user)
-          setProfile(profileData)
-        } else {
-          setError('Employee profile not found. Please contact your administrator.')
-        }
+      setLoading(true)
+      
+      // Fetch user profile to get employee_id
+      const { data: userProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('employee_id, role')
+        .eq('id', userId)
+        .single()
+
+      if (profileError) throw profileError
+
+      // Fetch employee data including profile photo
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('id', userProfile.employee_id)
+        .single()
+
+      if (employeeError) throw employeeError
+
+      // Combine user profile and employee data
+      const completeEmployeeData = {
+        ...employeeData,
+        user_role: userProfile.role
       }
+
+      setEmployee(completeEmployeeData)
     } catch (error) {
-      console.error('Session check failed:', error)
-      setError('Failed to load employee profile. Please try logging in again.')
+      console.error('Error fetching employee data:', error)
+      // If error, logout user
+      await supabase.auth.signOut()
     } finally {
       setLoading(false)
     }
   }
 
-  const handleLogin = ({ user, profile }) => {
-    if (profile && profile.employees) {
-      setUser(user)
-      setProfile(profile)
-      setError(null)
-    } else {
-      setError('Employee profile not found. Please contact your administrator.')
-    }
+  const handleEmployeeUpdate = (updatedEmployee) => {
+    setEmployee(prev => ({ ...prev, ...updatedEmployee }))
   }
 
   const handleLogout = async () => {
     try {
-      await authService.signOut()
-      setUser(null)
-      setProfile(null)
-      setError(null)
+      await supabase.auth.signOut()
+      setSession(null)
+      setEmployee(null)
     } catch (error) {
-      console.error('Logout failed:', error)
+      console.error('Error logging out:', error)
     }
   }
 
-  if (loading) {
-    return <div className="loading-screen">Loading...</div>
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen)
   }
 
-  if (error) {
+  if (loading) {
     return (
       <div className="loading-screen">
-        <div className="card" style={{ maxWidth: '500px', textAlign: 'center' }}>
-          <div className="error-message">
-            {error}
-          </div>
-          <button 
-            className="btn btn-primary" 
-            onClick={() => {
-              setError(null)
-              setUser(null)
-              setProfile(null)
-            }}
-          >
-            Try Again
-          </button>
-        </div>
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
       </div>
     )
   }
 
-  if (!user || !profile || !profile.employees) {
-    return <Login onLogin={handleLogin} />
+  if (!session || !employee) {
+    return <Login />
   }
 
   return (
     <Router>
       <div className="app">
         <Header 
-          employee={profile.employees}
-          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          employee={employee}
           onLogout={handleLogout}
+          onToggleSidebar={toggleSidebar}
         />
         
-        <div className="app-content">
+        <div className="app-layout">
           <Sidebar 
             isOpen={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
+            userRole={employee.user_role}
           />
           
-          <main className="main-content">
+          <main className={`main-content ${sidebarOpen ? 'sidebar-open' : ''}`}>
             <Routes>
-              <Route path="/" element={<Dashboard employee={profile.employees} />} />
-              <Route path="/profile" element={<ProfileManagement employee={profile.employees} />} />
-              <Route path="/attendance" element={<AttendanceTracker employeeId={profile.employees.id} />} />
-              <Route path="/leave" element={<LeaveRequest employeeId={profile.employees.id} />} />
-              <Route path="/expense" element={<ExpenseRequest employeeId={profile.employees.id} />} />
-              <Route path="*" element={<Navigate to="/" />} />
+              <Route 
+                path="/" 
+                element={
+                  <Dashboard 
+                    employee={employee} 
+                    onEmployeeUpdate={handleEmployeeUpdate}
+                  />
+                } 
+              />
+              <Route 
+                path="/profile" 
+                element={
+                  <ProfileManagement 
+                    employee={employee} 
+                    onProfileUpdate={handleEmployeeUpdate}
+                  />
+                } 
+              />
+              <Route 
+                path="/attendance" 
+                element={<AttendanceTracker employeeId={employee.id} />} 
+              />
+              <Route 
+                path="/leave" 
+                element={<LeaveRequest employeeId={employee.id} />} 
+              />
+              <Route 
+                path="/expense" 
+                element={<ExpenseRequest employeeId={employee.id} />} 
+              />
+              <Route 
+                path="/performance" 
+                element={<PerformanceDashboard employeeId={employee.id} />} 
+              />
+              <Route 
+                path="/goals-kpi" 
+                element={<GoalTrackingKPI employeeId={employee.id} />} 
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
         </div>

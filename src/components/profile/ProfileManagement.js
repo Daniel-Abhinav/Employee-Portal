@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabaseClient'
 
-const ProfileManagement = ({ employee }) => {
+const ProfileManagement = ({ employee, onProfileUpdate }) => {
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
@@ -23,22 +23,39 @@ const ProfileManagement = ({ employee }) => {
   const [messageType, setMessageType] = useState('')
 
   useEffect(() => {
-    setProfileData({
-      name: employee.name || '',
-      email: employee.email || '',
-      phone: employee.phone || '',
-      address_permanent: employee.address_permanent || '',
-      address_current: employee.address_current || '',
-      bank_details: employee.bank_details || {
-        account_number: '',
-        bank_name: '',
-        ifsc_code: '',
-        account_holder_name: ''
-      },
-      wedding_anniversary: employee.wedding_anniversary || '',
-      profile_photo_url: employee.profile_photo_url || ''
-    })
-  }, [employee])
+    // Load fresh employee data including photo URL from database
+    fetchEmployeeData()
+  }, [employee.id])
+
+  const fetchEmployeeData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('id', employee.id)
+        .single()
+
+      if (error) throw error
+
+      setProfileData({
+        name: data.name || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        address_permanent: data.address_permanent || '',
+        address_current: data.address_current || '',
+        bank_details: data.bank_details || {
+          account_number: '',
+          bank_name: '',
+          ifsc_code: '',
+          account_holder_name: ''
+        },
+        wedding_anniversary: data.wedding_anniversary || '',
+        profile_photo_url: data.profile_photo_url || '' // This persists the photo
+      })
+    } catch (error) {
+      console.error('Error fetching employee data:', error)
+    }
+  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -59,28 +76,60 @@ const ProfileManagement = ({ employee }) => {
     }
   }
 
+  const validateImageFile = (file) => {
+    // Check file extension (most reliable)
+    const fileName = file.name.toLowerCase()
+    const validExtensions = ['.jpg', '.jpeg', '.png']
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext))
+    
+    // Check MIME type (includes all possible variations)
+    const validMimeTypes = [
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/pjpeg' // Sometimes used for JPEG
+    ]
+    const hasValidMimeType = validMimeTypes.includes(file.type)
+    
+    // Return true if either check passes
+    return hasValidExtension || hasValidMimeType
+  }
+
   const handlePhotoUpload = async (event) => {
     const file = event.target.files[0]
     if (!file) return
 
-    // Validate file
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg']
-    const maxSize = 2 * 1024 * 1024 // 2MB
+    // Clear previous messages
+    setMessage('')
+    setMessageType('')
 
-    if (!allowedTypes.includes(file.type)) {
-      setMessage('Only JPG and PNG files are allowed')
+    // Debug logging (remove in production)
+    console.log('File upload attempt:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      extension: file.name.split('.').pop().toLowerCase()
+    })
+
+    // Validate file type
+    if (!validateImageFile(file)) {
+      setMessage(`File type "${file.type}" is not allowed. Only JPG and PNG files are accepted.`)
       setMessageType('error')
+      // Clear the input
+      event.target.value = null
       return
     }
 
+    // Validate file size (2MB max)
+    const maxSize = 2 * 1024 * 1024
     if (file.size > maxSize) {
       setMessage('File size must be less than 2MB')
       setMessageType('error')
+      event.target.value = null
       return
     }
 
     setUploadingPhoto(true)
-    setMessage('')
 
     try {
       // Create unique filename
@@ -95,18 +144,37 @@ const ProfileManagement = ({ employee }) => {
           upsert: true
         })
 
-      if (error) throw error
+      if (error) {
+        console.error('Storage upload error:', error)
+        throw error
+      }
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('employee-photos')
         .getPublicUrl(fileName)
 
+      // CRITICAL: Save URL to database immediately
+      const { error: updateError } = await supabase
+        .from('employees')
+        .update({ profile_photo_url: publicUrl })
+        .eq('id', employee.id)
+
+      if (updateError) throw updateError
+
+      // Update local state
       setProfileData(prev => ({ ...prev, profile_photo_url: publicUrl }))
+      
+      // Notify parent component about the update
+      if (onProfileUpdate) {
+        onProfileUpdate({ ...employee, profile_photo_url: publicUrl })
+      }
+
       setMessage('Photo uploaded successfully!')
       setMessageType('success')
 
     } catch (error) {
+      console.error('Upload error:', error)
       setMessage('Error uploading photo: ' + error.message)
       setMessageType('error')
     } finally {
@@ -129,11 +197,16 @@ const ProfileManagement = ({ employee }) => {
           address_current: profileData.address_current,
           bank_details: profileData.bank_details,
           wedding_anniversary: profileData.wedding_anniversary || null,
-          profile_photo_url: profileData.profile_photo_url
+          profile_photo_url: profileData.profile_photo_url // Keep the photo URL
         })
         .eq('id', employee.id)
 
       if (error) throw error
+
+      // Notify parent component about the update
+      if (onProfileUpdate) {
+        onProfileUpdate({ ...employee, ...profileData })
+      }
 
       setMessage('Profile updated successfully!')
       setMessageType('success')
@@ -182,7 +255,7 @@ const ProfileManagement = ({ employee }) => {
             <div className="upload-controls">
               <input
                 type="file"
-                accept="image/jpeg,image/png,image/jpg"
+                accept="image/jpeg,image/jpg,image/png"
                 onChange={handlePhotoUpload}
                 disabled={uploadingPhoto}
                 className="file-input-hidden"
