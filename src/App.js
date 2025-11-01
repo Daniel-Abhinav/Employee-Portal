@@ -14,6 +14,8 @@ import Header from './components/common/Header'
 import GoalTrackingKPI from './components/goals/GoalTrackingKPI'
 import PerformanceDashboard from './components/performance/PerformanceDashboard'
 import Sidebar from './components/common/Sidebar'
+import { ToastProvider } from './contexts/ToastProvider';
+
 
 function App() {
   const [session, setSession] = useState(null)
@@ -116,67 +118,69 @@ function App() {
   }
 
   return (
-    <Router>
-      <div className="app">
-        <Header 
-          employee={employee}
-          onLogout={handleLogout}
-          onToggleSidebar={toggleSidebar}
-        />
-        
-        <div className="app-layout">
-          <Sidebar 
-            isOpen={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-            userRole={employee.user_role}
+    <ToastProvider>
+      <Router>
+        <div className="app">
+          <Header 
+            employee={employee}
+            onLogout={handleLogout}
+            onToggleSidebar={toggleSidebar}
           />
           
-          <main className={`main-content ${sidebarOpen ? 'sidebar-open' : ''}`}>
-            <Routes>
-              <Route 
-                path="/" 
-                element={
-                  <Dashboard 
-                    employee={employee} 
-                    onEmployeeUpdate={handleEmployeeUpdate}
-                  />
-                } 
-              />
-              <Route 
-                path="/profile" 
-                element={
-                  <ProfileManagement 
-                    employee={employee} 
-                    onProfileUpdate={handleEmployeeUpdate}
-                  />
-                } 
-              />
-              <Route 
-                path="/attendance" 
-                element={<AttendanceTracker employeeId={employee.id} />} 
-              />
-              <Route 
-                path="/leave" 
-                element={<LeaveRequest employeeId={employee.id} />} 
-              />
-              <Route 
-                path="/expense" 
-                element={<ExpenseRequest employeeId={employee.id} />} 
-              />
-              <Route 
-                path="/performance" 
-                element={<PerformanceDashboard employeeId={employee.id} />} 
-              />
-              <Route 
-                path="/goals-kpi" 
-                element={<GoalTrackingKPI employeeId={employee.id} />} 
-              />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
+          <div className="app-layout">
+            <Sidebar 
+              isOpen={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
+              userRole={employee.user_role}
+            />
+            
+            <main className={`main-content ${sidebarOpen ? 'sidebar-open' : ''}`}>
+              <Routes>
+                <Route 
+                  path="/" 
+                  element={
+                    <Dashboard 
+                      employee={employee} 
+                      onEmployeeUpdate={handleEmployeeUpdate}
+                    />
+                  } 
+                />
+                <Route 
+                  path="/profile" 
+                  element={
+                    <ProfileManagement 
+                      employee={employee} 
+                      onProfileUpdate={handleEmployeeUpdate}
+                    />
+                  } 
+                />
+                <Route 
+                  path="/attendance" 
+                  element={<AttendanceTracker employeeId={employee.id} />} 
+                />
+                <Route 
+                  path="/leave" 
+                  element={<LeaveRequest employeeId={employee.id} />} 
+                />
+                <Route 
+                  path="/expense" 
+                  element={<ExpenseRequest employeeId={employee.id} />} 
+                />
+                <Route 
+                  path="/performance" 
+                  element={<PerformanceDashboard employeeId={employee.id} />} 
+                />
+                <Route 
+                  path="/goals-kpi" 
+                  element={<GoalTrackingKPI employeeId={employee.id} />} 
+                />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </main>
+          </div>
         </div>
-      </div>
-    </Router>
+      </Router>
+    </ToastProvider>
   )
 }
 

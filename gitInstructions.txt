@@ -1,0 +1,11 @@
+# Check what's changed
+git status
+
+# Add all changes
+git add .
+
+# Commit with message
+git commit -m "Add Goals & KPI tracking module and fix sidebar positioning"
+
+# Push to GitHub
+git push origin main
