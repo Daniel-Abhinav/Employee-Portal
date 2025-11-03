@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabaseClient'
 
 const leaveTypes = [
-  { value: 'Casual Leave', label: 'Casual Leave', balance: 12 },
-  { value: 'Sick Leave', label: 'Sick Leave', balance: 7 },
-  { value: 'Paid Leave', label: 'Paid Leave', balance: 21 },
-  { value: 'Unpaid Leave', label: 'Unpaid Leave', balance: 'Unlimited' },
-  { value: 'Other', label: 'Other', balance: 0 }
+  { value: 'Casual Leave', label: 'Casual Leave', icon: '🏖️', balance: 12, color: '#10b981' },
+  { value: 'Sick Leave', label: 'Sick Leave', icon: '🤒', balance: 7, color: '#ef4444' },
+  { value: 'Paid Leave', label: 'Paid Leave', icon: '✈️', balance: 21, color: '#3b82f6' },
+  { value: 'Unpaid Leave', label: 'Unpaid Leave', icon: '⏸️', balance: 'Unlimited', color: '#6b7280' },
+  { value: 'Other', label: 'Other', icon: '📋', balance: 0, color: '#8b5cf6' }
 ]
 
 const LeaveRequest = ({ employeeId }) => {
@@ -18,6 +18,7 @@ const LeaveRequest = ({ employeeId }) => {
   })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('')
   const [requests, setRequests] = useState([])
   const [leaveBalance, setLeaveBalance] = useState({})
   const [leaveCalendar, setLeaveCalendar] = useState([])
@@ -40,7 +41,6 @@ const LeaveRequest = ({ employeeId }) => {
   }
 
   const fetchLeaveBalance = async () => {
-    // Calculate leave balance based on used leaves
     const { data } = await supabase
       .from('leave_requests')
       .select('leave_type, start_date, end_date')
@@ -115,21 +115,26 @@ const LeaveRequest = ({ employeeId }) => {
         leave_type: form.leave_type,
         start_date: form.start_date,
         end_date: form.end_date,
-        reason: form.reason
+        reason: form.reason,
+        status: 'pending'
       }])
 
-      setMessage('Leave request submitted successfully!')
+      setMessage('✅ Leave request submitted successfully!')
+      setMessageType('success')
       setForm({ leave_type: '', start_date: '', end_date: '', reason: '' })
       fetchRequests()
       fetchLeaveBalance()
     } catch (err) {
-      setMessage(err.message)
+      setMessage('❌ ' + err.message)
+      setMessageType('error')
     } finally {
       setLoading(false)
     }
   }
 
   const cancelRequest = async (requestId) => {
+    if (!window.confirm('Are you sure you want to cancel this leave request?')) return
+
     try {
       await supabase
         .from('leave_requests')
@@ -138,11 +143,13 @@ const LeaveRequest = ({ employeeId }) => {
         .eq('employee_id', employeeId)
         .eq('status', 'pending')
 
-      setMessage('Leave request cancelled successfully!')
+      setMessage('✅ Leave request cancelled successfully!')
+      setMessageType('success')
       fetchRequests()
       fetchLeaveBalance()
     } catch (error) {
-      setMessage('Error cancelling request: ' + error.message)
+      setMessage('❌ Error cancelling request: ' + error.message)
+      setMessageType('error')
     }
   }
 
@@ -155,241 +162,326 @@ const LeaveRequest = ({ employeeId }) => {
   }
 
   const getStatusBadge = (status) => {
-    const statusClasses = {
-      pending: 'status-warning',
-      approved: 'status-success',
-      rejected: 'status-danger'
+    const statusConfig = {
+      pending: { icon: '⏳', class: 'status-warning', label: 'Pending' },
+      approved: { icon: '✅', class: 'status-success', label: 'Approved' },
+      rejected: { icon: '❌', class: 'status-danger', label: 'Rejected' }
     }
-    return `status-badge ${statusClasses[status] || 'status-secondary'}`
+    return statusConfig[status] || { icon: '📋', class: 'status-secondary', label: status }
+  }
+
+  const getLeaveTypeConfig = (leaveType) => {
+    return leaveTypes.find(t => t.value === leaveType) || leaveTypes[4]
   }
 
   return (
-    <div className="leave-request-modern">
-      <div className="leave-header">
-        <h2>Leave Management</h2>
-        <p>Request time off and manage your leave balance</p>
+    <div className="leave-request-enhanced">
+      {/* Header */}
+      <div className="page-header-gradient">
+        <div className="header-content-flex">
+          <div className="header-text-section">
+            <h1>🏖️ Leave Management</h1>
+            <p>Request time off and manage your leave balance</p>
+          </div>
+        </div>
       </div>
 
+      {/* Alert Message */}
       {message && (
-        <div className={`message-modern ${message.includes('Error') ? 'error' : 'success'}`}>
-          {message}
+        <div className={`alert-banner ${messageType}`}>
+          <span>{message}</span>
+          <button onClick={() => setMessage('')} className="alert-close">✕</button>
         </div>
       )}
 
       {/* Leave Balance Cards */}
-      <div className="leave-balance-grid">
-        {leaveTypes.map(type => (
-          <div key={type.value} className="balance-card">
-            <div className="balance-type">{type.label}</div>
-            <div className="balance-amount">
-              {typeof leaveBalance[type.value] === 'number' ? 
-                `${leaveBalance[type.value]} days` : 
-                leaveBalance[type.value] || `${type.balance} days`}
+      <div className="balance-cards-grid">
+        {leaveTypes.map(type => {
+          const remaining = leaveBalance[type.value]
+          const total = type.balance
+          const percentage = typeof total === 'number' && typeof remaining === 'number' 
+            ? (remaining / total) * 100 
+            : 100
+
+          return (
+            <div key={type.value} className="balance-card-enhanced" style={{ borderLeftColor: type.color }}>
+              <div className="balance-header">
+                <span className="balance-icon">{type.icon}</span>
+                <span className="balance-type-name">{type.label}</span>
+              </div>
+              <div className="balance-stats">
+                <div className="balance-remaining">
+                  {typeof remaining === 'number' ? `${remaining}` : remaining || total}
+                </div>
+                <div className="balance-label">
+                  {typeof remaining === 'number' ? 'days remaining' : 'available'}
+                </div>
+              </div>
+              {typeof total === 'number' && (
+                <div className="balance-progress">
+                  <div className="progress-track-mini">
+                    <div 
+                      className="progress-fill-mini" 
+                      style={{ 
+                        width: `${percentage}%`,
+                        backgroundColor: type.color 
+                      }}
+                    ></div>
+                  </div>
+                  <div className="balance-total-text">of {total} days</div>
+                </div>
+              )}
             </div>
-            <div className="balance-total">
-              Total: {typeof type.balance === 'number' ? `${type.balance} days` : type.balance}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Tabs */}
-      <div className="leave-tabs">
+      <div className="tabs-modern">
         <button 
-          className={`tab-btn ${activeTab === 'request' ? 'active' : ''}`}
+          className={`tab-button ${activeTab === 'request' ? 'active' : ''}`}
           onClick={() => setActiveTab('request')}
         >
-          New Request
+          <span className="tab-icon">➕</span>
+          <span>New Request</span>
         </button>
         <button 
-          className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+          className={`tab-button ${activeTab === 'history' ? 'active' : ''}`}
           onClick={() => setActiveTab('history')}
         >
-          My Requests
+          <span className="tab-icon">📋</span>
+          <span>My Requests</span>
         </button>
         <button 
-          className={`tab-btn ${activeTab === 'calendar' ? 'active' : ''}`}
+          className={`tab-button ${activeTab === 'calendar' ? 'active' : ''}`}
           onClick={() => setActiveTab('calendar')}
         >
-          Leave Calendar
+          <span className="tab-icon">📅</span>
+          <span>Calendar</span>
         </button>
       </div>
 
-      {/* New Request Tab */}
-      {activeTab === 'request' && (
-        <div className="modern-card">
-          <div className="card-header-modern">
-            <h3>Submit New Leave Request</h3>
-            <p>Fill in the details for your leave application</p>
-          </div>
-          <form onSubmit={handleSubmit} className="leave-form">
-            <div className="form-grid">
-              <div className="form-group-modern">
-                <label>Leave Type *</label>
-                <select 
-                  name="leave_type" 
-                  value={form.leave_type} 
-                  onChange={handleChange} 
-                  required
-                >
-                  <option value="">Select leave type</option>
-                  {leaveTypes.map(type => (
-                    <option key={type.value} value={type.value}>
-                      {type.label} ({typeof leaveBalance[type.value] === 'number' ? 
-                        `${leaveBalance[type.value]} days left` : 
-                        leaveBalance[type.value] || `${type.balance} available`})
-                    </option>
-                  ))}
-                </select>
+      {/* Tab Content */}
+      <div className="tab-content-modern">
+        {/* New Request Tab */}
+        {activeTab === 'request' && (
+          <div className="content-card-modern">
+            <div className="card-title-section">
+              <h3>➕ Submit New Leave Request</h3>
+              <p className="card-subtitle">Fill in the details for your leave application</p>
+            </div>
+            <form onSubmit={handleSubmit} className="leave-form-enhanced">
+              <div className="form-row-enhanced">
+                <div className="form-field-enhanced">
+                  <label>Leave Type *</label>
+                  <select 
+                    name="leave_type" 
+                    value={form.leave_type} 
+                    onChange={handleChange} 
+                    required
+                  >
+                    <option value="">Select leave type</option>
+                    {leaveTypes.map(type => (
+                      <option key={type.value} value={type.value}>
+                        {type.icon} {type.label} ({typeof leaveBalance[type.value] === 'number' ? 
+                          `${leaveBalance[type.value]} days left` : 
+                          leaveBalance[type.value] || `${type.balance} available`})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div className="form-group-modern">
-                <label>Start Date *</label>
-                <input 
-                  type="date" 
-                  name="start_date" 
-                  value={form.start_date} 
-                  onChange={handleChange}
-                  min={new Date().toISOString().split('T')[0]}
-                  required 
-                />
-              </div>
+              <div className="form-row-enhanced">
+                <div className="form-field-enhanced">
+                  <label>Start Date *</label>
+                  <input 
+                    type="date" 
+                    name="start_date" 
+                    value={form.start_date} 
+                    onChange={handleChange}
+                    min={new Date().toISOString().split('T')[0]}
+                    required 
+                  />
+                </div>
 
-              <div className="form-group-modern">
-                <label>End Date *</label>
-                <input 
-                  type="date" 
-                  name="end_date" 
-                  value={form.end_date} 
-                  onChange={handleChange}
-                  min={form.start_date || new Date().toISOString().split('T')[0]}
-                  required 
-                />
+                <div className="form-field-enhanced">
+                  <label>End Date *</label>
+                  <input 
+                    type="date" 
+                    name="end_date" 
+                    value={form.end_date} 
+                    onChange={handleChange}
+                    min={form.start_date || new Date().toISOString().split('T')[0]}
+                    required 
+                  />
+                </div>
               </div>
 
               {form.start_date && form.end_date && (
-                <div className="leave-duration">
-                  <div className="duration-info">
-                    <strong>Duration: {calculateLeaveDays(form.start_date, form.end_date)} days</strong>
-                  </div>
+                <div className="duration-display">
+                  <span className="duration-icon">📅</span>
+                  <span className="duration-text">
+                    Duration: <strong>{calculateLeaveDays(form.start_date, form.end_date)} day(s)</strong>
+                  </span>
                 </div>
               )}
 
-              <div className="form-group-modern full-width">
-                <label>Reason</label>
-                <textarea 
-                  name="reason" 
-                  value={form.reason} 
-                  onChange={handleChange}
-                  placeholder="Briefly explain the reason for your leave"
-                  rows="3"
-                />
+              <div className="form-row-enhanced">
+                <div className="form-field-enhanced full">
+                  <label>Reason (Optional)</label>
+                  <textarea 
+                    name="reason" 
+                    value={form.reason} 
+                    onChange={handleChange}
+                    placeholder="Briefly explain the reason for your leave"
+                    rows="4"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="form-actions">
-              <button 
-                type="submit" 
-                className="btn-modern primary" 
-                disabled={loading}
-              >
-                {loading ? 'Submitting...' : 'Submit Request'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* History Tab */}
-      {activeTab === 'history' && (
-        <div className="modern-card">
-          <div className="card-header-modern">
-            <h3>My Leave Requests</h3>
-            <p>Track the status of your leave applications</p>
+              <div className="form-actions-enhanced">
+                <button 
+                  type="submit" 
+                  className="btn-submit-leave" 
+                  disabled={loading}
+                >
+                  {loading ? '⏳ Submitting...' : '📤 Submit Request'}
+                </button>
+              </div>
+            </form>
           </div>
-          
-          {requests.length > 0 ? (
-            <div className="requests-list">
-              {requests.map(request => (
-                <div key={request.id} className="request-item">
-                  <div className="request-main">
-                    <div className="request-info">
-                      <div className="request-type">{request.leave_type}</div>
-                      <div className="request-dates">
-                        {formatDate(request.start_date)} - {formatDate(request.end_date)}
-                        <span className="request-duration">
-                          ({calculateLeaveDays(request.start_date, request.end_date)} days)
-                        </span>
+        )}
+
+        {/* History Tab */}
+        {activeTab === 'history' && (
+          <div className="content-card-modern">
+            <div className="card-title-section">
+              <h3>📋 My Leave Requests</h3>
+              <span className="badge-count">{requests.length} request{requests.length !== 1 ? 's' : ''}</span>
+            </div>
+            
+            {requests.length > 0 ? (
+              <div className="requests-list-enhanced">
+                {requests.map(request => {
+                  const statusInfo = getStatusBadge(request.status)
+                  const typeConfig = getLeaveTypeConfig(request.leave_type)
+                  
+                  return (
+                    <div key={request.id} className="request-card-modern">
+                      <div className="request-card-header">
+                        <div className="request-type-badge" style={{ backgroundColor: typeConfig.color }}>
+                          {typeConfig.icon} {request.leave_type}
+                        </div>
+                        <div className={`request-status-badge ${statusInfo.class}`}>
+                          {statusInfo.icon} {statusInfo.label}
+                        </div>
                       </div>
-                      {request.reason && (
-                        <div className="request-reason">{request.reason}</div>
-                      )}
-                    </div>
-                    <div className="request-actions">
-                      <span className={getStatusBadge(request.status)}>
-                        {request.status}
-                      </span>
-                      {request.status === 'pending' && (
-                        <button 
-                          onClick={() => cancelRequest(request.id)}
-                          className="cancel-btn"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="request-meta">
-                    Applied: {formatDate(request.created_at)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state-small">
-              <div className="empty-icon">📝</div>
-              <p>No leave requests found</p>
-            </div>
-          )}
-        </div>
-      )}
+                      
+                      <div className="request-card-body">
+                        <div className="request-dates-section">
+                          <div className="date-block">
+                            <span className="date-label">From</span>
+                            <span className="date-value">{formatDate(request.start_date)}</span>
+                          </div>
+                          <div className="date-arrow">→</div>
+                          <div className="date-block">
+                            <span className="date-label">To</span>
+                            <span className="date-value">{formatDate(request.end_date)}</span>
+                          </div>
+                          <div className="date-duration">
+                            <span className="duration-badge">
+                              {calculateLeaveDays(request.start_date, request.end_date)} day(s)
+                            </span>
+                          </div>
+                        </div>
 
-      {/* Calendar Tab */}
-      {activeTab === 'calendar' && (
-        <div className="modern-card">
-          <div className="card-header-modern">
-            <h3>Leave Calendar</h3>
-            <p>Overview of your leaves this year</p>
+                        {request.reason && (
+                          <div className="request-reason-section">
+                            <span className="reason-label">Reason:</span>
+                            <span className="reason-text">{request.reason}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="request-card-footer">
+                        <div className="request-meta-info">
+                          <span className="meta-label">Applied:</span>
+                          <span className="meta-value">{formatDate(request.created_at)}</span>
+                        </div>
+                        {request.status === 'pending' && (
+                          <button 
+                            onClick={() => cancelRequest(request.id)}
+                            className="btn-cancel-request"
+                          >
+                            🗑️ Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="empty-state-modern">
+                <div className="empty-icon-large">📝</div>
+                <h4>No Leave Requests</h4>
+                <p>You haven't submitted any leave requests yet</p>
+              </div>
+            )}
           </div>
-          
-          {leaveCalendar.length > 0 ? (
-            <div className="calendar-timeline">
-              {leaveCalendar.map(leave => (
-                <div key={leave.id} className="timeline-item">
-                  <div className="timeline-marker"></div>
-                  <div className="timeline-content">
-                    <div className="timeline-header">
-                      <span className="timeline-type">{leave.leave_type}</span>
-                      <span className={getStatusBadge(leave.status)}>{leave.status}</span>
-                    </div>
-                    <div className="timeline-dates">
-                      {formatDate(leave.start_date)} - {formatDate(leave.end_date)}
-                    </div>
-                    {leave.reason && (
-                      <div className="timeline-reason">{leave.reason}</div>
-                    )}
-                  </div>
-                </div>
-              ))}
+        )}
+
+        {/* Calendar Tab */}
+        {activeTab === 'calendar' && (
+          <div className="content-card-modern">
+            <div className="card-title-section">
+              <h3>📅 Leave Calendar {new Date().getFullYear()}</h3>
+              <p className="card-subtitle">Overview of your leaves this year</p>
             </div>
-          ) : (
-            <div className="empty-state-small">
-              <div className="empty-icon">📅</div>
-              <p>No leaves scheduled this year</p>
-            </div>
-          )}
-        </div>
-      )}
+            
+            {leaveCalendar.length > 0 ? (
+              <div className="calendar-timeline-modern">
+                {leaveCalendar.map(leave => {
+                  const statusInfo = getStatusBadge(leave.status)
+                  const typeConfig = getLeaveTypeConfig(leave.leave_type)
+                  
+                  return (
+                    <div key={leave.id} className="timeline-item-modern">
+                      <div className="timeline-marker-modern" style={{ backgroundColor: typeConfig.color }}></div>
+                      <div className="timeline-content-modern">
+                        <div className="timeline-header-row">
+                          <div className="timeline-type-badge" style={{ backgroundColor: typeConfig.color }}>
+                            {typeConfig.icon} {leave.leave_type}
+                          </div>
+                          <div className={`timeline-status ${statusInfo.class}`}>
+                            {statusInfo.icon} {statusInfo.label}
+                          </div>
+                        </div>
+                        <div className="timeline-date-range">
+                          {formatDate(leave.start_date)} → {formatDate(leave.end_date)}
+                          <span className="timeline-days">
+                            ({calculateLeaveDays(leave.start_date, leave.end_date)} day{calculateLeaveDays(leave.start_date, leave.end_date) > 1 ? 's' : ''})
+                          </span>
+                        </div>
+                        {leave.reason && (
+                          <div className="timeline-reason-text">{leave.reason}</div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="empty-state-modern">
+                <div className="empty-icon-large">📅</div>
+                <h4>No Leaves Scheduled</h4>
+                <p>You don't have any leaves scheduled for this year</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

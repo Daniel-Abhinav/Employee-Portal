@@ -74,7 +74,6 @@ const AttendanceTracker = ({ employeeId }) => {
 
   const fetchColleagues = async () => {
     try {
-      // Get current employee's department
       const { data: currentEmployee } = await supabase
         .from('employees')
         .select('department')
@@ -83,7 +82,6 @@ const AttendanceTracker = ({ employeeId }) => {
 
       if (!currentEmployee?.department) return
 
-      // Get colleagues from same department with today's attendance
       const today = new Date().toISOString().split('T')[0]
       const { data: colleagueData } = await supabase
         .from('employees')
@@ -108,7 +106,6 @@ const AttendanceTracker = ({ employeeId }) => {
       const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay()))
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
-      // Daily report (today)
       const todayStr = new Date().toISOString().split('T')[0]
       const { data: dailyData } = await supabase
         .from('attendance')
@@ -116,28 +113,25 @@ const AttendanceTracker = ({ employeeId }) => {
         .eq('employee_id', employeeId)
         .eq('date', todayStr)
 
-      // Weekly report
       const { data: weeklyData } = await supabase
         .from('attendance')
         .select('*')
         .eq('employee_id', employeeId)
         .gte('date', startOfWeek.toISOString().split('T')[0])
 
-      // Monthly report
       const { data: monthlyData } = await supabase
         .from('attendance')
         .select('*')
         .eq('employee_id', employeeId)
         .gte('date', startOfMonth.toISOString().split('T')[0])
 
-      // Calculate reports
       const dailyHours = calculateTotalHours(dailyData || [])
       const weeklyHours = calculateTotalHours(weeklyData || [])
       const monthlyHours = calculateTotalHours(monthlyData || [])
 
       const weeklyDays = new Set((weeklyData || []).map(r => r.date)).size
       const monthlyDays = new Set((monthlyData || []).map(r => r.date)).size
-      const totalWorkingDays = new Date().getDate() // Simplified
+      const totalWorkingDays = new Date().getDate()
 
       setReports({
         daily: {
@@ -228,13 +222,13 @@ const AttendanceTracker = ({ employeeId }) => {
 
       if (error) throw error
 
-      setMessage('Successfully clocked in!')
+      setMessage('✅ Successfully clocked in!')
       setMessageType('success')
       setCurrentSession(data)
       fetchAttendanceData()
       fetchReports()
     } catch (error) {
-      setMessage('Error clocking in: ' + error.message)
+      setMessage('❌ Error clocking in: ' + error.message)
       setMessageType('error')
     } finally {
       setActionLoading(false)
@@ -260,13 +254,13 @@ const AttendanceTracker = ({ employeeId }) => {
 
       if (error) throw error
 
-      setMessage('Successfully clocked out!')
+      setMessage('✅ Successfully clocked out!')
       setMessageType('success')
       setCurrentSession(null)
       fetchAttendanceData()
       fetchReports()
     } catch (error) {
-      setMessage('Error clocking out: ' + error.message)
+      setMessage('❌ Error clocking out: ' + error.message)
       setMessageType('error')
     } finally {
       setActionLoading(false)
@@ -274,237 +268,306 @@ const AttendanceTracker = ({ employeeId }) => {
   }
 
   if (loading) {
-    return <div className="loading-screen">Loading attendance...</div>
+    return (
+      <div className="loading-container-modern">
+        <div className="spinner-modern"></div>
+        <p>Loading attendance data...</p>
+      </div>
+    )
   }
 
   return (
-    <div className="attendance-modern">
-      <div className="attendance-header">
-        <h2>Attendance Tracker</h2>
-        <p>Track your work hours and view reports</p>
+    <div className="attendance-tracker-modern">
+      {/* Header Section */}
+      <div className="page-header-gradient">
+        <div className="header-content-flex">
+          <div className="header-text-section">
+            <h1>⏰ Attendance Tracker</h1>
+            <p>Track your work hours and view reports</p>
+          </div>
+          <div className="header-time-display">
+            <div className="live-time-large">{currentTime}</div>
+            <div className="live-date-small">{new Date().toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}</div>
+          </div>
+        </div>
       </div>
 
+      {/* Alert Message */}
       {message && (
-        <div className={`message-modern ${messageType}`}>
-          {message}
+        <div className={`alert-banner ${messageType}`}>
+          <span>{message}</span>
+          <button onClick={() => setMessage('')} className="alert-close">✕</button>
         </div>
       )}
 
-      {/* Live Clock & Clock In/Out */}
-      <div className="modern-card clock-section">
-        <div className="live-clock">
-          {currentTime}
+      {/* Clock In/Out Card */}
+      <div className="clock-card-hero">
+        <div className="clock-status-section">
+          {currentSession ? (
+            <>
+              <div className="status-indicator active">
+                <div className="pulse-dot"></div>
+                <span>Active Session</span>
+              </div>
+              <div className="session-details-grid">
+                <div className="session-detail-item">
+                  <span className="detail-label">Clocked In</span>
+                  <span className="detail-value">{formatTime(currentSession.check_in_time)}</span>
+                </div>
+                <div className="session-detail-item">
+                  <span className="detail-label">Duration</span>
+                  <span className="detail-value highlight">
+                    {formatHours(calculateMinutesWorked(currentSession.check_in_time, getCurrentTime()) / 60)}
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="status-indicator inactive">
+              <span>Not Clocked In</span>
+            </div>
+          )}
         </div>
-        
-        <div className="clock-controls">
+
+        <div className="clock-button-section">
           {!currentSession ? (
             <button
-              className="clock-button clock-in"
+              className="btn-clock in"
               onClick={handleClockIn}
               disabled={actionLoading}
             >
-              {actionLoading ? 'Clocking In...' : 'CLOCK IN'}
+              <span className="btn-icon">🟢</span>
+              <span className="btn-text">{actionLoading ? 'Clocking In...' : 'CLOCK IN'}</span>
             </button>
           ) : (
             <button
-              className="clock-button clock-out"
+              className="btn-clock out"
               onClick={handleClockOut}
               disabled={actionLoading}
             >
-              {actionLoading ? 'Clocking Out...' : 'CLOCK OUT'}
+              <span className="btn-icon">🔴</span>
+              <span className="btn-text">{actionLoading ? 'Clocking Out...' : 'CLOCK OUT'}</span>
             </button>
           )}
         </div>
+      </div>
 
-        {currentSession && (
-          <div className="current-session-info">
-            <p>Active since: {formatTime(currentSession.check_in_time)}</p>
-            <p>Duration: {formatHours(calculateMinutesWorked(currentSession.check_in_time, getCurrentTime()) / 60)}</p>
+      {/* Tabs Navigation */}
+      <div className="tabs-modern">
+        <button 
+          className={`tab-button ${activeTab === 'today' ? 'active' : ''}`}
+          onClick={() => setActiveTab('today')}
+        >
+          <span className="tab-icon">📋</span>
+          <span>Today</span>
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'reports' ? 'active' : ''}`}
+          onClick={() => setActiveTab('reports')}
+        >
+          <span className="tab-icon">📊</span>
+          <span>Reports</span>
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'colleagues' ? 'active' : ''}`}
+          onClick={() => setActiveTab('colleagues')}
+        >
+          <span className="tab-icon">👥</span>
+          <span>Team</span>
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="tab-content-modern">
+        {/* Today Tab */}
+        {activeTab === 'today' && (
+          <div className="content-card-modern">
+            <div className="card-title-section">
+              <h3>📅 Today's Sessions</h3>
+              <span className="badge-count">{todayAttendance.length} session{todayAttendance.length !== 1 ? 's' : ''}</span>
+            </div>
+            
+            {todayAttendance.length > 0 ? (
+              <div className="sessions-timeline">
+                {todayAttendance.map((record, index) => {
+                  const duration = calculateMinutesWorked(record.check_in_time, record.check_out_time)
+                  const isActive = !record.check_out_time
+                  return (
+                    <div key={record.id} className={`session-card ${isActive ? 'active-session' : ''}`}>
+                      <div className="session-badge">#{index + 1}</div>
+                      <div className="session-info-grid">
+                        <div className="session-time-block">
+                          <span className="time-icon">🟢</span>
+                          <div className="time-details">
+                            <span className="time-label">Check In</span>
+                            <span className="time-value">{formatTime(record.check_in_time)}</span>
+                          </div>
+                        </div>
+                        <div className="session-time-block">
+                          <span className="time-icon">{isActive ? '⏱️' : '🔴'}</span>
+                          <div className="time-details">
+                            <span className="time-label">Check Out</span>
+                            <span className="time-value">
+                              {record.check_out_time ? formatTime(record.check_out_time) : 
+                                <span className="active-label">Active Now</span>}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="session-duration-block">
+                          <span className="duration-icon">⏲️</span>
+                          <div className="time-details">
+                            <span className="time-label">Duration</span>
+                            <span className="time-value duration-highlight">
+                              {record.check_out_time ? formatHours(duration / 60) : 
+                                formatHours(calculateMinutesWorked(record.check_in_time, getCurrentTime()) / 60)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="empty-state-modern">
+                <div className="empty-icon-large">⏰</div>
+                <h4>No Sessions Today</h4>
+                <p>Clock in to start tracking your work hours</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reports Tab */}
+        {activeTab === 'reports' && (
+          <div className="reports-container-modern">
+            <div className="report-card daily">
+              <div className="report-header">
+                <h4>📊 Daily Summary</h4>
+                <span className="report-subtitle">Today's work</span>
+              </div>
+              <div className="report-metrics">
+                <div className="metric-item">
+                  <div className="metric-value">{formatHours(reports.daily.totalHours)}</div>
+                  <div className="metric-label">Total Hours</div>
+                </div>
+                <div className="metric-divider"></div>
+                <div className="metric-item">
+                  <div className="metric-value">{reports.daily.sessions}</div>
+                  <div className="metric-label">Sessions</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="report-card weekly">
+              <div className="report-header">
+                <h4>📈 Weekly Summary</h4>
+                <span className="report-subtitle">This week's performance</span>
+              </div>
+              <div className="report-metrics">
+                <div className="metric-item">
+                  <div className="metric-value">{formatHours(reports.weekly.totalHours)}</div>
+                  <div className="metric-label">Total Hours</div>
+                </div>
+                <div className="metric-divider"></div>
+                <div className="metric-item">
+                  <div className="metric-value">{reports.weekly.daysPresent}</div>
+                  <div className="metric-label">Days Present</div>
+                </div>
+                <div className="metric-divider"></div>
+                <div className="metric-item">
+                  <div className="metric-value">{formatHours(reports.weekly.avgHours)}</div>
+                  <div className="metric-label">Avg/Day</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="report-card monthly">
+              <div className="report-header">
+                <h4>📅 Monthly Summary</h4>
+                <span className="report-subtitle">This month's overview</span>
+              </div>
+              <div className="report-metrics">
+                <div className="metric-item">
+                  <div className="metric-value">{formatHours(reports.monthly.totalHours)}</div>
+                  <div className="metric-label">Total Hours</div>
+                </div>
+                <div className="metric-divider"></div>
+                <div className="metric-item">
+                  <div className="metric-value">{reports.monthly.daysPresent}</div>
+                  <div className="metric-label">Days Present</div>
+                </div>
+                <div className="metric-divider"></div>
+                <div className="metric-item">
+                  <div className="metric-value">{reports.monthly.attendanceRate.toFixed(1)}%</div>
+                  <div className="metric-label">Attendance Rate</div>
+                </div>
+              </div>
+              <div className="progress-wrapper">
+                <div className="progress-label-row">
+                  <span>Monthly Progress</span>
+                  <span className="progress-percentage">{reports.monthly.attendanceRate.toFixed(1)}%</span>
+                </div>
+                <div className="progress-bar-track">
+                  <div 
+                    className="progress-bar-fill"
+                    style={{ width: `${Math.min(reports.monthly.attendanceRate, 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Team Tab */}
+        {activeTab === 'colleagues' && (
+          <div className="content-card-modern">
+            <div className="card-title-section">
+              <h3>👥 Team Status</h3>
+              <p className="card-subtitle">Your department colleagues' attendance today</p>
+            </div>
+            
+            {colleagues.length > 0 ? (
+              <div className="team-grid-modern">
+                {colleagues.map((colleague) => (
+                  <div key={colleague.id} className="team-member-card">
+                    <div className="member-avatar-modern">
+                      {colleague.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="member-details">
+                      <div className="member-name">{colleague.name}</div>
+                      <div className="member-status-row">
+                        <span className={`status-dot ${
+                          colleague.attendance[0]?.status === 'Present' ? 'present' : 'absent'
+                        }`}></span>
+                        <span className="status-text">
+                          {colleague.attendance[0]?.status || 'Not Marked'}
+                        </span>
+                      </div>
+                      {colleague.attendance[0]?.check_in_time && (
+                        <div className="member-time">
+                          🟢 {formatTime(colleague.attendance[0].check_in_time)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state-modern">
+                <div className="empty-icon-large">👥</div>
+                <h4>No Team Members Found</h4>
+                <p>No colleagues from your department have marked attendance today</p>
+              </div>
+            )}
           </div>
         )}
       </div>
-
-      {/* Tabs */}
-      <div className="attendance-tabs">
-        <button 
-          className={`tab-btn ${activeTab === 'today' ? 'active' : ''}`}
-          onClick={() => setActiveTab('today')}
-        >
-          Today
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'reports' ? 'active' : ''}`}
-          onClick={() => setActiveTab('reports')}
-        >
-          Reports
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'colleagues' ? 'active' : ''}`}
-          onClick={() => setActiveTab('colleagues')}
-        >
-          Team Status
-        </button>
-      </div>
-
-      {/* Today Tab */}
-      {activeTab === 'today' && (
-        <div className="modern-card">
-          <div className="card-header-modern">
-            <h3>Today's Sessions</h3>
-            <p>Your clock in/out sessions for today</p>
-          </div>
-          
-          {todayAttendance.length > 0 ? (
-            <div className="sessions-list">
-              {todayAttendance.map((record, index) => {
-                const duration = calculateMinutesWorked(record.check_in_time, record.check_out_time)
-                return (
-                  <div key={record.id} className="session-item">
-                    <div className="session-number">#{index + 1}</div>
-                    <div className="session-times">
-                      <div className="time-in">
-                        <span className="time-label">In:</span>
-                        <span className="time-value">{formatTime(record.check_in_time)}</span>
-                      </div>
-                      <div className="time-out">
-                        <span className="time-label">Out:</span>
-                        <span className="time-value">
-                          {record.check_out_time ? formatTime(record.check_out_time) : 
-                            <span className="active-badge">Active</span>}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="session-duration">
-                      {record.check_out_time ? formatHours(duration / 60) : 
-                        formatHours(calculateMinutesWorked(record.check_in_time, getCurrentTime()) / 60)}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="empty-state-small">
-              <div className="empty-icon">⏰</div>
-              <p>No sessions today. Clock in to start!</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Reports Tab */}
-      {activeTab === 'reports' && (
-        <div className="reports-grid">
-          <div className="modern-card">
-            <div className="card-header-modern">
-              <h3>📊 Daily Report</h3>
-              <p>Today's work summary</p>
-            </div>
-            <div className="report-stats">
-              <div className="report-stat">
-                <div className="stat-value">{formatHours(reports.daily.totalHours)}</div>
-                <div className="stat-label">Total Hours</div>
-              </div>
-              <div className="report-stat">
-                <div className="stat-value">{reports.daily.sessions}</div>
-                <div className="stat-label">Sessions</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="modern-card">
-            <div className="card-header-modern">
-              <h3>📈 Weekly Report</h3>
-              <p>This week's performance</p>
-            </div>
-            <div className="report-stats">
-              <div className="report-stat">
-                <div className="stat-value">{formatHours(reports.weekly.totalHours)}</div>
-                <div className="stat-label">Total Hours</div>
-              </div>
-              <div className="report-stat">
-                <div className="stat-value">{reports.weekly.daysPresent}</div>
-                <div className="stat-label">Days Present</div>
-              </div>
-              <div className="report-stat">
-                <div className="stat-value">{formatHours(reports.weekly.avgHours)}</div>
-                <div className="stat-label">Avg/Day</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="modern-card">
-            <div className="card-header-modern">
-              <h3>📅 Monthly Report</h3>
-              <p>This month's overview</p>
-            </div>
-            <div className="report-stats">
-              <div className="report-stat">
-                <div className="stat-value">{formatHours(reports.monthly.totalHours)}</div>
-                <div className="stat-label">Total Hours</div>
-              </div>
-              <div className="report-stat">
-                <div className="stat-value">{reports.monthly.daysPresent}</div>
-                <div className="stat-label">Days Present</div>
-              </div>
-              <div className="report-stat">
-                <div className="stat-value">{reports.monthly.attendanceRate.toFixed(1)}%</div>
-                <div className="stat-label">Attendance Rate</div>
-              </div>
-            </div>
-            <div className="progress-bar-container">
-              <div className="progress-label">Monthly Progress</div>
-              <div className="progress-bar">
-                <div 
-                  className="progress-fill"
-                  style={{ width: `${Math.min(reports.monthly.attendanceRate, 100)}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Colleagues Tab */}
-      {activeTab === 'colleagues' && (
-        <div className="modern-card">
-          <div className="card-header-modern">
-            <h3>👥 Team Status</h3>
-            <p>Your department colleagues' attendance today</p>
-          </div>
-          
-          {colleagues.length > 0 ? (
-            <div className="colleagues-grid">
-              {colleagues.map((colleague) => (
-                <div key={colleague.id} className="colleague-card">
-                  <div className="colleague-avatar">
-                    {colleague.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="colleague-info">
-                    <div className="colleague-name">{colleague.name}</div>
-                    <div className="colleague-status">
-                      <span className={`status-badge ${
-                        colleague.attendance[0]?.status === 'Present' ? 'status-success' : 'status-secondary'
-                      }`}>
-                        {colleague.attendance[0]?.status || 'Not Marked'}
-                      </span>
-                    </div>
-                    {colleague.attendance[0]?.check_in_time && (
-                      <div className="colleague-time">
-                        In: {formatTime(colleague.attendance[0].check_in_time)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state-small">
-              <div className="empty-icon">👥</div>
-              <p>No colleagues found in your department</p>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

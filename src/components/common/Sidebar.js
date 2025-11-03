@@ -13,105 +13,25 @@ const Sidebar = ({ isOpen, onClose, userRole }) => {
   }
 
   const handleLinkClick = () => {
-    // Close sidebar on mobile when link is clicked
     if (window.innerWidth <= 768) {
       onClose()
     }
   }
 
   const sidebarItems = [
-    {
-      key: 'dashboard',
-      path: '/',
-      icon: '🏠',
-      label: 'Dashboard',
-      roles: ['admin', 'employee']
-    },
-    {
-      key: 'profile',
-      path: '/profile',
-      icon: '👤',
-      label: 'My Profile',
-      roles: ['admin', 'employee']
-    },
-    {
-      key: 'attendance',
-      path: '/attendance',
-      icon: '⏰',
-      label: 'Attendance',
-      roles: ['admin', 'employee']
-    },
-    {
-      key: 'leave',
-      path: '/leave',
-      icon: '🏖️',
-      label: 'Leave Management',
-      roles: ['admin', 'employee']
-    },
-    {
-      key: 'expense',
-      path: '/expense',
-      icon: '💰',
-      label: 'Expenses',
-      roles: ['admin', 'employee']
-    },
-    {
-      key: 'performance',
-      path: '/performance',
-      icon: '📝',
-      label: 'Performance Reviews',
-      roles: ['admin', 'employee']
-    },
-    {
-      key: 'goals-kpi',
-      path: '/goals-kpi',
-      icon: '🎯',
-      label: 'Goals & KPIs',
-      roles: ['admin', 'employee']
-    },
-    // Admin-only sections
-    {
-      key: 'reports',
-      path: '/reports',
-      icon: '📊',
-      label: 'Reports & Analytics',
-      roles: ['admin', 'hr_manager']
-    },
-    {
-      key: 'employees',
-      path: '/employees',
-      icon: '👥',
-      label: 'Employee Management',
-      roles: ['admin', 'hr_manager']
-    },
-    {
-      key: 'admin-performance',
-      path: '/admin/performance',
-      icon: '📈',
-      label: 'Performance Management',
-      roles: ['admin', 'hr_manager']
-    },
-    {
-      key: 'admin-goals',
-      path: '/admin/goals',
-      icon: '🎯',
-      label: 'Goal Management',
-      roles: ['admin', 'hr_manager']
-    },
-    {
-      key: 'payroll',
-      path: '/payroll',
-      icon: '💸',
-      label: 'Payroll',
-      roles: ['admin', 'hr_manager']
-    },
-    {
-      key: 'settings',
-      path: '/settings',
-      icon: '⚙️',
-      label: 'Settings',
-      roles: ['admin']
-    }
+    { key: 'dashboard', path: '/', icon: '🏠', label: 'Dashboard', roles: ['admin', 'employee'] },
+    { key: 'profile', path: '/profile', icon: '👤', label: 'My Profile', roles: ['admin', 'employee'] },
+    { key: 'attendance', path: '/attendance', icon: '⏰', label: 'Attendance', roles: ['admin', 'employee'] },
+    { key: 'leave', path: '/leave', icon: '🏖️', label: 'Leave Management', roles: ['admin', 'employee'] },
+    { key: 'expense', path: '/expense', icon: '💰', label: 'Expenses', roles: ['admin', 'employee'] },
+    { key: 'performance', path: '/performance', icon: '📝', label: 'Performance Reviews', roles: ['admin', 'employee'] },
+    { key: 'goals-kpi', path: '/goals-kpi', icon: '🎯', label: 'Goals & KPIs', roles: ['admin', 'employee'] },
+    { key: 'reports', path: '/reports', icon: '📊', label: 'Reports & Analytics', roles: ['admin', 'hr_manager'] },
+    { key: 'employees', path: '/employees', icon: '👥', label: 'Employee Management', roles: ['admin', 'hr_manager'] },
+    { key: 'admin-performance', path: '/admin/performance', icon: '📈', label: 'Performance Management', roles: ['admin', 'hr_manager'] },
+    { key: 'admin-goals', path: '/admin/goals', icon: '🎯', label: 'Goal Management', roles: ['admin', 'hr_manager'] },
+    { key: 'payroll', path: '/payroll', icon: '💸', label: 'Payroll', roles: ['admin', 'hr_manager'] },
+    { key: 'settings', path: '/settings', icon: '⚙️', label: 'Settings', roles: ['admin'] }
   ]
 
   // Filter items based on user role
@@ -147,40 +67,35 @@ const Sidebar = ({ isOpen, onClose, userRole }) => {
 
         {/* Navigation Menu */}
         <nav className="sidebar-nav">
-          <ul className="nav-list">
+          <ul className="sidebar-menu">
             {filteredItems.map((item) => {
               if (item.children) {
-                // Handle submenu items (for future expansion)
+                // Future submenu support:
                 const isExpanded = expandedMenus[item.key]
-                const hasActiveChild = item.children.some(child => 
-                  location.pathname === child.path
-                )
+                const hasActiveChild = item.children.some(child => location.pathname === child.path)
 
                 return (
-                  <li key={item.key} className="nav-item">
+                  <li key={item.key} className="sidebar-item">
                     <button
-                      className={`nav-link nav-toggle ${hasActiveChild ? 'active' : ''}`}
+                      className={`sidebar-link nav-toggle ${hasActiveChild ? 'active' : ''}`}
                       onClick={() => toggleMenu(item.key)}
                     >
-                      <span className="nav-icon">{item.icon}</span>
-                      <span className="nav-text">{item.label}</span>
-                      <span className={`nav-arrow ${isExpanded ? 'expanded' : ''}`}>
-                        ▼
-                      </span>
+                      <span className="sidebar-icon">{item.icon}</span>
+                      <span className="sidebar-label">{item.label}</span>
+                      <span className={`nav-arrow ${isExpanded ? 'expanded' : ''}`}>▼</span>
                     </button>
-                    
                     <ul className={`nav-submenu ${isExpanded ? 'expanded' : ''}`}>
                       {item.children.map((child) => (
-                        <li key={child.key} className="nav-subitem">
+                        <li key={child.key} className="sidebar-item">
                           <NavLink
                             to={child.path}
                             className={({ isActive }) => 
-                              `nav-sublink ${isActive ? 'active' : ''}`
+                              `sidebar-link ${isActive ? 'active' : ''}`
                             }
                             onClick={handleLinkClick}
                           >
-                            <span className="nav-subicon">{child.icon}</span>
-                            <span className="nav-subtext">{child.label}</span>
+                            <span className="sidebar-icon">{child.icon}</span>
+                            <span className="sidebar-label">{child.label}</span>
                           </NavLink>
                         </li>
                       ))}
@@ -188,18 +103,18 @@ const Sidebar = ({ isOpen, onClose, userRole }) => {
                   </li>
                 )
               } else {
-                // Handle regular menu items
+                // Standard flat menu
                 return (
-                  <li key={item.key} className="nav-item">
+                  <li key={item.key} className="sidebar-item">
                     <NavLink
                       to={item.path}
                       className={({ isActive }) => 
-                        `nav-link ${isActive ? 'active' : ''}`
+                        `sidebar-link ${isActive ? 'active' : ''}`
                       }
                       onClick={handleLinkClick}
                     >
-                      <span className="nav-icon">{item.icon}</span>
-                      <span className="nav-text">{item.label}</span>
+                      <span className="sidebar-icon">{item.icon}</span>
+                      <span className="sidebar-label">{item.label}</span>
                       {item.badge && (
                         <span className="nav-badge">{item.badge}</span>
                       )}
